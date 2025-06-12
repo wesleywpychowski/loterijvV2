@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loterij van Veldeke (Diagnostische Modus)</title>
+    <title>Loterij van Veldeke</title>
     <script async defer src="https://apis.google.com/js/api.js?onload=onGapiLoad"></script>
     <style>
-        /* CSS is ongewijzigd */
+        /* CSS grotendeels ongewijzigd */
         body { font-family: sans-serif; background-color: #f0f2f5; color: #333; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
         .container { width: 100%; max-width: 900px; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .header-container { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px; }
@@ -17,6 +17,19 @@
         button { display: block; width: 100%; padding: 12px; font-size: 16px; font-weight: bold; color: #fff; background-color: #1a73e8; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; }
         button:hover { background-color: #155ab6; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        /* AANPASSING: Stijl voor de nieuwe 'terug'-knop */
+        .secondary-button {
+            background-color: #6c757d; /* Een neutrale grijze kleur */
+            width: auto; /* Niet de volledige breedte */
+            padding: 8px 15px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .secondary-button:hover {
+            background-color: #5a6268;
+        }
+
         #klassen-lijst { list-style-type: none; padding: 0; columns: 3; -webkit-columns: 3; -moz-columns: 3; column-gap: 20px; }
         #klassen-lijst .sheet-group { break-inside: avoid-column; padding: 10px; background-color: #f9f9f9; border-radius: 5px; margin-bottom: 15px; }
         #klassen-lijst h4 { margin-top: 0; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
@@ -45,6 +58,7 @@
         <img src="veldeke-logo.png" alt="Logo Veldeke" id="logo">
         <h1>loterij van Veldeke</h1>
     </div>
+
     <div class="setup-klassen">
         <h2>Kies Klassen</h2>
         <div id="laad-status">Wachten op Google API...</div>
@@ -53,11 +67,24 @@
         </div>
         <button id="btn-start-loterij" disabled>Start Loterij met Selectie</button>
     </div>
+
     <div class="trekking" style="display: none;">
+        <button id="btn-terug-naar-klassen" class="secondary-button">↰ Terug naar klassenselectie</button>
+        
         <h2>Loterij</h2>
         <button id="btn-trek">Trek een Winnaar!</button>
-        <div id="getrokken-naam-container" style="display: none;"><p>De getrokken naam is:</p><div id="getrokken-naam"></div><div id="keuze-container"><p><strong>Moet deze naam (en alle dubbele) uit de lijst worden verwijderd?</strong></p><div class="keuze-knoppen"><button id="btn-verwijder-ja">Ja, verwijder</button><button id="btn-verwijder-nee">Nee, behoud</button></div></div></div>
+        <div id="getrokken-naam-container" style="display: none;">
+            <p>De getrokken naam is:</p><div id="getrokken-naam"></div>
+            <div id="keuze-container">
+                <p><strong>Moet deze naam (en alle dubbele) uit de lijst worden verwijderd?</strong></p>
+                <div class="keuze-knoppen">
+                    <button id="btn-verwijder-ja">Ja, verwijder</button>
+                    <button id="btn-verwijder-nee">Nee, behoud</button>
+                </div>
+            </div>
+        </div>
     </div>
+
     <div class="resultaat" style="display: none;">
         <h2>Overzicht</h2>
         <div class="lijsten-container">
@@ -69,11 +96,13 @@
 
 <script>
 const API_KEY = 'AIzaSyCvNpb2YHYzMbYbWVj_57mN8gjLkZKMt4E';
-const SPREADSHEET_ID = '15Nr6kfkxdxELAbnAakQl4Y_NYdKPa5EP-fDPUyYqtR0';
+const SPREADSHEET_ID = '1RV9ndOQ8vaHLhJqK4HhOvCA9UFThG27W4zVH76LgmUk';
 
 let alleKlassen = [], deelnemers = [], winnaars = [], huidigeWinnaar = null;
 
 const setupKlassenDiv = document.querySelector('.setup-klassen'), trekkingDiv = document.querySelector('.trekking'), resultaatDiv = document.querySelector('.resultaat'), btnStartLoterij = document.getElementById('btn-start-loterij'), laadStatus = document.getElementById('laad-status'), klassenLijstUl = document.getElementById('klassen-lijst'), btnTrek = document.getElementById('btn-trek'), btnSchudden = document.getElementById('btn-schudden'), getrokkenNaamContainer = document.getElementById('getrokken-naam-container'), getrokkenNaamDiv = document.getElementById('getrokken-naam'), btnVerwijderJa = document.getElementById('btn-verwijder-ja'), btnVerwijderNee = document.getElementById('btn-verwijder-nee'), deelnemersLijstUl = document.getElementById('deelnemers-lijst'), winnaarsLijstUl = document.getElementById('winnaars-lijst'), aantalDeelnemersSpan = document.getElementById('aantal-deelnemers'), aantalWinnaarsSpan = document.getElementById('aantal-winnaars');
+// AANPASSING: Nieuwe knop element ophalen
+const btnTerugNaarKlassen = document.getElementById('btn-terug-naar-klassen');
 
 function onGapiLoad() { gapi.load('client', initClient); }
 
@@ -84,9 +113,8 @@ async function initClient() {
         laadStatus.textContent = 'Klassen ophalen...';
         await fetchSheetsAndClasses();
     } catch (e) {
-        laadStatus.textContent = `Fout bij initialiseren.`;
-        console.error("Foutobject bij initialiseren:", e);
-        alert(`Fout bij initialiseren. Kijk in de F12-console voor details.`);
+        laadStatus.textContent = `Fout bij initialiseren: ${e.message}.`;
+        alert(`Fout bij initialiseren: ${e.message}.`);
     }
 }
 
@@ -110,18 +138,8 @@ async function fetchSheetsAndClasses() {
         laadStatus.textContent = `Klassen succesvol opgehaald. Maak je keuze.`;
         btnStartLoterij.disabled = false;
     } catch (e) {
-        // --- AANPASSING HIER ---
-        // Log het volledige foutobject naar de console voor gedetailleerde diagnose.
-        console.error("Volledig foutobject van Google API:", e);
-
-        // Probeer een meer gedetailleerde foutmelding te vinden in het object.
-        let errorMessage = "Onbekende fout. Controleer de F12-console.";
-        if (e && e.result && e.result.error && e.result.error.message) {
-            errorMessage = e.result.error.message;
-        }
-
-        laadStatus.textContent = `Fout bij ophalen van data: ${errorMessage}`;
-        alert(`Fout bij ophalen van data: ${errorMessage}\n\nKijk in de F12-console voor technische details.`);
+        laadStatus.textContent = `Fout bij ophalen van data: ${e.message}. Controleer Spreadsheet ID en deel-instellingen.`;
+        alert(`Fout bij ophalen van data: ${e.message}.`);
     }
 }
 
@@ -171,6 +189,26 @@ async function loadSelectedNames() {
     }
 }
 
+// AANPASSING: Nieuwe functie om de loterij te resetten
+function terugNaarKlassenSelectie() {
+    // Verberg de loterij schermen
+    trekkingDiv.style.display = 'none';
+    resultaatDiv.style.display = 'none';
+
+    // Toon het klassenselectie scherm
+    setupKlassenDiv.style.display = 'block';
+
+    // Reset de status
+    deelnemers = [];
+    winnaars = [];
+    huidigeWinnaar = null;
+    laadStatus.textContent = 'Maak een nieuwe selectie van klassen.';
+
+    // Deselecteer alle checkboxes voor een schone start
+    const checkboxes = document.querySelectorAll('#klassen-lijst input[type="checkbox"]:checked');
+    checkboxes.forEach(cb => cb.checked = false);
+}
+
 function updateLijsten() {
     deelnemersLijstUl.innerHTML = ''; winnaarsLijstUl.innerHTML = '';
     deelnemers.forEach(naam => { const li = document.createElement('li'); li.textContent = naam; deelnemersLijstUl.appendChild(li); });
@@ -184,11 +222,15 @@ function schudDeelnemers() { let currentIndex = deelnemers.length; while (curren
 function trekEenNaam() { if (deelnemers.length === 0) return; const randomIndex = Math.floor(Math.random() * deelnemers.length); huidigeWinnaar = deelnemers[randomIndex]; getrokkenNaamDiv.textContent = huidigeWinnaar; getrokkenNaamContainer.style.display = 'block'; btnTrek.style.display = 'none'; }
 function verwerkKeuze(verwijder) { if (huidigeWinnaar === null) return; if (verwijder) { deelnemers = deelnemers.filter(naam => naam !== huidigeWinnaar); } winnaars.push(huidigeWinnaar); huidigeWinnaar = null; getrokkenNaamContainer.style.display = 'none'; btnTrek.style.display = 'block'; updateLijsten(); }
 
+// Event Listeners
 btnStartLoterij.addEventListener('click', loadSelectedNames);
 btnSchudden.addEventListener('click', schudDeelnemers);
 btnTrek.addEventListener('click', trekEenNaam);
 btnVerwijderJa.addEventListener('click', () => verwerkKeuze(true));
 btnVerwijderNee.addEventListener('click', () => verwerkKeuze(false));
+// AANPASSING: Event listener voor de nieuwe knop
+btnTerugNaarKlassen.addEventListener('click', terugNaarKlassenSelectie);
+
 </script>
 </body>
 </html>
