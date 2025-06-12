@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loterij van Veldeke (Multi-klas Selectie)</title>
+    <title>Loterij van Veldeke</title>
     <script src="https://apis.google.com/js/api.js"></script>
     <style>
         /* CSS is ongewijzigd */
@@ -13,10 +13,7 @@
         #logo { height: 50px; width: auto; }
         .header-container h1 { margin: 0; color: #1a73e8; text-align: left; }
         h2, h3 { text-align: center; color: #333; }
-        .setup-api, .setup-klassen, .trekking, .resultaat { margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }
-        .input-group { margin-bottom: 10px; }
-        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .setup-klassen, .trekking, .resultaat { margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }
         button { display: block; width: 100%; padding: 12px; font-size: 16px; font-weight: bold; color: #fff; background-color: #1a73e8; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; }
         button:hover { background-color: #155ab6; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
@@ -49,30 +46,17 @@
         <h1>loterij van Veldeke</h1>
     </div>
 
-    <div class="setup-api">
-        <h2>1. API Instellingen</h2>
-        <div class="input-group">
-            <label for="spreadsheet-id">Google Spreadsheet ID</label>
-            <input type="text" id="spreadsheet-id" placeholder="Plak hier je Spreadsheet ID">
-        </div>
-        <div class="input-group">
-            <label for="api-key">Google Cloud API Key</label>
-            <input type="password" id="api-key" placeholder="Plak hier je API Key">
-        </div>
-        <button id="btn-laad-klassen">Haal Klassen Op</button>
-        <div id="laad-status"></div>
-    </div>
-
-    <div class="setup-klassen" style="display: none;">
-        <h2>2. Kies Klassen</h2>
+    <div class="setup-klassen">
+        <h2>Kies Klassen</h2>
+        <div id="laad-status">Klassen worden geladen...</div>
         <div id="klassen-container">
             <ul id="klassen-lijst"></ul>
         </div>
-        <button id="btn-start-loterij">Start Loterij met Selectie</button>
+        <button id="btn-start-loterij" disabled>Start Loterij met Selectie</button>
     </div>
 
     <div class="trekking" style="display: none;">
-        <h2>3. Trek een Naam</h2>
+        <h2>Loterij</h2>
         <button id="btn-trek">Trek een Winnaar!</button>
         <div id="getrokken-naam-container" style="display: none;">
             <p>De getrokken naam is:</p><div id="getrokken-naam"></div>
@@ -87,7 +71,7 @@
     </div>
 
     <div class="resultaat" style="display: none;">
-        <h2>4. Overzicht</h2>
+        <h2>Overzicht</h2>
         <div class="lijsten-container">
             <div class="lijst">
                 <div class="lijst-header">
@@ -104,29 +88,25 @@
 </div>
 
 <script>
-// ---------- ALLES IN ÉÉN OPGESCHOOND SCRIPT ----------
+// ---------- OPGESCHOOND SCRIPT MET VASTE GEGEVENS ----------
+
+// AANPASSING: Vaste API Key en Spreadsheet ID
+const API_KEY = 'AIzaSyCvNpb2YHYzMbYbWVj_57mN8gjLkZKMt4E'; // Plak hier de API Key
+const SPREADSHEET_ID = '1RV9ndOQ8vaHLhJqK4HhOvCA9UFThG27W4zVH76LgmUk'; // Plak hier de Spreadsheet ID
 
 // Globale variabelen
-let SPREADSHEET_ID = '';
-let API_KEY = '';
 let alleKlassen = []; 
 let deelnemers = [];
 let winnaars = [];
 let huidigeWinnaar = null;
 
-// HTML Elementen ophalen (één keer aan het begin)
-const setupApiDiv = document.querySelector('.setup-api');
+// HTML Elementen ophalen
 const setupKlassenDiv = document.querySelector('.setup-klassen');
 const trekkingDiv = document.querySelector('.trekking');
 const resultaatDiv = document.querySelector('.resultaat');
-
-const spreadsheetIdInput = document.getElementById('spreadsheet-id');
-const apiKeyInput = document.getElementById('api-key');
-const btnLaadKlassen = document.getElementById('btn-laad-klassen');
 const btnStartLoterij = document.getElementById('btn-start-loterij');
 const laadStatus = document.getElementById('laad-status');
 const klassenLijstUl = document.getElementById('klassen-lijst');
-
 const btnTrek = document.getElementById('btn-trek');
 const btnSchudden = document.getElementById('btn-schudden');
 const getrokkenNaamContainer = document.getElementById('getrokken-naam-container');
@@ -145,24 +125,17 @@ function laadGoogleApiEnInitClient() {
 }
 
 async function initClient() {
-    API_KEY = apiKeyInput.value.trim();
-    SPREADSHEET_ID = spreadsheetIdInput.value.trim();
-
-    if (!API_KEY || !SPREADSHEET_ID) {
-        alert("Vul zowel Spreadsheet ID als API Key in.");
-        return;
-    }
-
-    laadStatus.textContent = 'Bezig met initialiseren...';
+    laadStatus.textContent = 'API initialiseren...';
     try {
         await gapi.client.init({
             apiKey: API_KEY,
             discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
         });
-        laadStatus.textContent = 'API geïnitialiseerd. Klassen ophalen...';
+        laadStatus.textContent = 'Klassen ophalen...';
         await fetchSheetsAndClasses();
     } catch (e) {
-        laadStatus.textContent = `Fout bij initialiseren: ${e.message}. Controleer je API key.`;
+        laadStatus.textContent = `Fout bij initialiseren: ${e.message}. Controleer de API key.`;
+        alert(`Fout bij initialiseren: ${e.message}. Controleer de API key.`);
     }
 }
 
@@ -192,10 +165,10 @@ async function fetchSheetsAndClasses() {
         }
         displayClasses();
         laadStatus.textContent = `Klassen succesvol opgehaald. Maak je keuze.`;
-        setupApiDiv.style.display = 'none';
-        setupKlassenDiv.style.display = 'block';
+        btnStartLoterij.disabled = false; // Maak de knop actief
     } catch (e) {
         laadStatus.textContent = `Fout bij ophalen van data: ${e.message}. Controleer Spreadsheet ID en of het blad publiek is.`;
+        alert(`Fout bij ophalen van data: ${e.message}.`);
     }
 }
 
@@ -218,7 +191,7 @@ function displayClasses() {
             const label = document.createElement('label');
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.value = `'<span class="math-inline">\{klas\.sheet\}'\|</span>{klas.kolom}`; // Quotes rond sheetnaam voor de zekerheid
+            checkbox.value = `'<span class="math-inline">\{klas\.sheet\}'\|</span>{klas.kolom}`;
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(` ${klas.klas}`));
             groupLi.appendChild(label);
@@ -229,52 +202,3 @@ function displayClasses() {
 
 async function loadSelectedNames() {
     const checkboxes = document.querySelectorAll('#klassen-lijst input[type="checkbox"]:checked');
-    if (checkboxes.length === 0) {
-        alert("Selecteer minstens één klas.");
-        return;
-    }
-    
-    laadStatus.textContent = 'Namen worden geladen...';
-    btnStartLoterij.disabled = true;
-
-    try {
-        const ranges = Array.from(checkboxes).map(cb => {
-            const [sheet, kolom] = cb.value.split('|');
-            return `<span class="math-inline">\{sheet\}\!</span>{kolom}2:${kolom}`;
-        });
-
-        const response = await gapi.client.sheets.spreadsheets.values.batchGet({
-            spreadsheetId: SPREADSHEET_ID,
-            ranges: ranges,
-        });
-
-        // Voor debuggen: kijk wat Google teruggeeft. Open de console met F12.
-        console.log("Antwoord van Google API:", response.result);
-
-        let namen = [];
-        if (response.result.valueRanges) {
-            response.result.valueRanges.forEach(range => {
-                if (range.values) {
-                    namen = namen.concat(range.values.flat());
-                }
-            });
-        }
-        
-        deelnemers = namen.map(n => n.trim()).filter(n => n.length > 0);
-
-        if (deelnemers.length === 0) {
-            alert("Geen namen gevonden in de geselecteerde klassen. Controleer of er namen in de kolommen staan (vanaf rij 2).");
-            btnStartLoterij.disabled = false;
-            return;
-        }
-
-        winnaars = [];
-        setupKlassenDiv.style.display = 'none';
-        trekkingDiv.style.display = 'block';
-        resultaatDiv.style.display = 'block';
-        updateLijsten();
-
-    } catch (e) {
-        alert(`Fout bij laden van namen: ${e.message}`);
-    } finally {
-        btnStartLoterij
