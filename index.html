@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loterij van Veldeke</title>
-    <script src="https://apis.google.com/js/api.js"></script>
+    <script async defer src="https://apis.google.com/js/api.js?onload=onGapiLoad"></script>
     <style>
         /* CSS is ongewijzigd */
         body { font-family: sans-serif; background-color: #f0f2f5; color: #333; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
@@ -48,7 +48,7 @@
 
     <div class="setup-klassen">
         <h2>Kies Klassen</h2>
-        <div id="laad-status">Klassen worden geladen...</div>
+        <div id="laad-status">Wachten op Google API...</div>
         <div id="klassen-container">
             <ul id="klassen-lijst"></ul>
         </div>
@@ -88,117 +88,10 @@
 </div>
 
 <script>
-// ---------- OPGESCHOOND SCRIPT MET VASTE GEGEVENS ----------
+// ---------- SCRIPT MET VASTE GEGEVENS EN CORRECTE TIMING ----------
 
-// AANPASSING: Vaste API Key en Spreadsheet ID
-const API_KEY = 'AIzaSyCvNpb2YHYzMbYbWVj_57mN8gjLkZKMt4E'; // Plak hier de API Key
-const SPREADSHEET_ID = '1RV9ndOQ8vaHLhJqK4HhOvCA9UFThG27W4zVH76LgmUk'; // Plak hier de Spreadsheet ID
+// Vaste API Key en Spreadsheet ID
+const API_KEY = 'AIzaSyCvNpb2YHYzMbYbWVj_57mN8gjLkZKMt4E';
+const SPREADSHEET_ID = '1RV9ndOQ8vaHLhJqK4HhOvCA9UFThG27W4zVH76LgmUk';
 
-// Globale variabelen
-let alleKlassen = []; 
-let deelnemers = [];
-let winnaars = [];
-let huidigeWinnaar = null;
-
-// HTML Elementen ophalen
-const setupKlassenDiv = document.querySelector('.setup-klassen');
-const trekkingDiv = document.querySelector('.trekking');
-const resultaatDiv = document.querySelector('.resultaat');
-const btnStartLoterij = document.getElementById('btn-start-loterij');
-const laadStatus = document.getElementById('laad-status');
-const klassenLijstUl = document.getElementById('klassen-lijst');
-const btnTrek = document.getElementById('btn-trek');
-const btnSchudden = document.getElementById('btn-schudden');
-const getrokkenNaamContainer = document.getElementById('getrokken-naam-container');
-const getrokkenNaamDiv = document.getElementById('getrokken-naam');
-const btnVerwijderJa = document.getElementById('btn-verwijder-ja');
-const btnVerwijderNee = document.getElementById('btn-verwijder-nee');
-const deelnemersLijstUl = document.getElementById('deelnemers-lijst');
-const winnaarsLijstUl = document.getElementById('winnaars-lijst');
-const aantalDeelnemersSpan = document.getElementById('aantal-deelnemers');
-const aantalWinnaarsSpan = document.getElementById('aantal-winnaars');
-
-
-// Functie om de Google API te laden en initialiseren
-function laadGoogleApiEnInitClient() {
-    gapi.load('client', initClient);
-}
-
-async function initClient() {
-    laadStatus.textContent = 'API initialiseren...';
-    try {
-        await gapi.client.init({
-            apiKey: API_KEY,
-            discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
-        });
-        laadStatus.textContent = 'Klassen ophalen...';
-        await fetchSheetsAndClasses();
-    } catch (e) {
-        laadStatus.textContent = `Fout bij initialiseren: ${e.message}. Controleer de API key.`;
-        alert(`Fout bij initialiseren: ${e.message}. Controleer de API key.`);
-    }
-}
-
-async function fetchSheetsAndClasses() {
-    alleKlassen = [];
-    try {
-        const response = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-        const sheets = response.result.sheets;
-        
-        for (const sheet of sheets) {
-            const sheetTitle = sheet.properties.title;
-            const range = `'${sheetTitle}'!A1:Z1`;
-            
-            const titleResponse = await gapi.client.sheets.spreadsheets.values.get({
-                spreadsheetId: SPREADSHEET_ID,
-                range: range,
-            });
-
-            if (titleResponse.result.values) {
-                const classTitles = titleResponse.result.values[0];
-                classTitles.forEach((title, index) => {
-                    if (title) {
-                        alleKlassen.push({ sheet: sheetTitle, klas: title, kolom: String.fromCharCode(65 + index) });
-                    }
-                });
-            }
-        }
-        displayClasses();
-        laadStatus.textContent = `Klassen succesvol opgehaald. Maak je keuze.`;
-        btnStartLoterij.disabled = false; // Maak de knop actief
-    } catch (e) {
-        laadStatus.textContent = `Fout bij ophalen van data: ${e.message}. Controleer Spreadsheet ID en of het blad publiek is.`;
-        alert(`Fout bij ophalen van data: ${e.message}.`);
-    }
-}
-
-function displayClasses() {
-    const groupedBySheet = alleKlassen.reduce((acc, klas) => {
-        acc[klas.sheet] = acc[klas.sheet] || [];
-        acc[klas.sheet].push(klas);
-        return acc;
-    }, {});
-
-    klassenLijstUl.innerHTML = '';
-    for (const sheetName in groupedBySheet) {
-        const groupLi = document.createElement('li');
-        groupLi.className = 'sheet-group';
-        const titleH4 = document.createElement('h4');
-        titleH4.textContent = sheetName;
-        groupLi.appendChild(titleH4);
-        
-        groupedBySheet[sheetName].forEach(klas => {
-            const label = document.createElement('label');
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = `'<span class="math-inline">\{klas\.sheet\}'\|</span>{klas.kolom}`;
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(` ${klas.klas}`));
-            groupLi.appendChild(label);
-        });
-        klassenLijstUl.appendChild(groupLi);
-    }
-}
-
-async function loadSelectedNames() {
-    const checkboxes = document.querySelectorAll('#klassen-lijst input[type="checkbox"]:checked');
+// Glob
