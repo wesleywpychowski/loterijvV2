@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loterij van Veldeke</title>
+    <title>Loterij van Veldeke (Diagnostische Modus)</title>
     <script async defer src="https://apis.google.com/js/api.js?onload=onGapiLoad"></script>
     <style>
         /* CSS is ongewijzigd */
@@ -45,7 +45,6 @@
         <img src="veldeke-logo.png" alt="Logo Veldeke" id="logo">
         <h1>loterij van Veldeke</h1>
     </div>
-
     <div class="setup-klassen">
         <h2>Kies Klassen</h2>
         <div id="laad-status">Wachten op Google API...</div>
@@ -54,88 +53,40 @@
         </div>
         <button id="btn-start-loterij" disabled>Start Loterij met Selectie</button>
     </div>
-
     <div class="trekking" style="display: none;">
         <h2>Loterij</h2>
         <button id="btn-trek">Trek een Winnaar!</button>
-        <div id="getrokken-naam-container" style="display: none;">
-            <p>De getrokken naam is:</p><div id="getrokken-naam"></div>
-            <div id="keuze-container">
-                <p><strong>Moet deze naam (en alle dubbele) uit de lijst worden verwijderd?</strong></p>
-                <div class="keuze-knoppen">
-                    <button id="btn-verwijder-ja">Ja, verwijder</button>
-                    <button id="btn-verwijder-nee">Nee, behoud</button>
-                </div>
-            </div>
-        </div>
+        <div id="getrokken-naam-container" style="display: none;"><p>De getrokken naam is:</p><div id="getrokken-naam"></div><div id="keuze-container"><p><strong>Moet deze naam (en alle dubbele) uit de lijst worden verwijderd?</strong></p><div class="keuze-knoppen"><button id="btn-verwijder-ja">Ja, verwijder</button><button id="btn-verwijder-nee">Nee, behoud</button></div></div></div>
     </div>
-
     <div class="resultaat" style="display: none;">
         <h2>Overzicht</h2>
         <div class="lijsten-container">
-            <div class="lijst">
-                <div class="lijst-header">
-                    <h3>Deelnemers (<span id="aantal-deelnemers">0</span>)</h3>
-                    <button id="btn-schudden" disabled>🔀 Schudden</button>
-                </div><ul id="deelnemers-lijst"></ul>
-            </div>
-            <div class="lijst">
-                <h3>Getrokken Namen (<span id="aantal-winnaars">0</span>)</h3>
-                <ul id="winnaars-lijst"></ul>
-            </div>
+            <div class="lijst"><div class="lijst-header"><h3>Deelnemers (<span id="aantal-deelnemers">0</span>)</h3><button id="btn-schudden" disabled>🔀 Schudden</button></div><ul id="deelnemers-lijst"></ul></div>
+            <div class="lijst"><h3>Getrokken Namen (<span id="aantal-winnaars">0</span>)</h3><ul id="winnaars-lijst"></ul></div>
         </div>
     </div>
 </div>
 
 <script>
-// ---------- SCRIPT MET VASTE GEGEVENS EN CORRECTE TIMING ----------
-
-// Vaste API Key en Spreadsheet ID
 const API_KEY = 'AIzaSyCvNpb2YHYzMbYbWVj_57mN8gjLkZKMt4E';
 const SPREADSHEET_ID = '1RV9ndOQ8vaHLhJqK4HhOvCA9UFThG27W4zVH76LgmUk';
 
-// Globale variabelen
-let alleKlassen = []; 
-let deelnemers = [];
-let winnaars = [];
-let huidigeWinnaar = null;
+let alleKlassen = [], deelnemers = [], winnaars = [], huidigeWinnaar = null;
 
-// HTML Elementen ophalen
-const setupKlassenDiv = document.querySelector('.setup-klassen');
-const trekkingDiv = document.querySelector('.trekking');
-const resultaatDiv = document.querySelector('.resultaat');
-const btnStartLoterij = document.getElementById('btn-start-loterij');
-const laadStatus = document.getElementById('laad-status');
-const klassenLijstUl = document.getElementById('klassen-lijst');
-const btnTrek = document.getElementById('btn-trek');
-const btnSchudden = document.getElementById('btn-schudden');
-const getrokkenNaamContainer = document.getElementById('getrokken-naam-container');
-const getrokkenNaamDiv = document.getElementById('getrokken-naam');
-const btnVerwijderJa = document.getElementById('btn-verwijder-ja');
-const btnVerwijderNee = document.getElementById('btn-verwijder-nee');
-const deelnemersLijstUl = document.getElementById('deelnemers-lijst');
-const winnaarsLijstUl = document.getElementById('winnaars-lijst');
-const aantalDeelnemersSpan = document.getElementById('aantal-deelnemers');
-const aantalWinnaarsSpan = document.getElementById('aantal-winnaars');
+const setupKlassenDiv = document.querySelector('.setup-klassen'), trekkingDiv = document.querySelector('.trekking'), resultaatDiv = document.querySelector('.resultaat'), btnStartLoterij = document.getElementById('btn-start-loterij'), laadStatus = document.getElementById('laad-status'), klassenLijstUl = document.getElementById('klassen-lijst'), btnTrek = document.getElementById('btn-trek'), btnSchudden = document.getElementById('btn-schudden'), getrokkenNaamContainer = document.getElementById('getrokken-naam-container'), getrokkenNaamDiv = document.getElementById('getrokken-naam'), btnVerwijderJa = document.getElementById('btn-verwijder-ja'), btnVerwijderNee = document.getElementById('btn-verwijder-nee'), deelnemersLijstUl = document.getElementById('deelnemers-lijst'), winnaarsLijstUl = document.getElementById('winnaars-lijst'), aantalDeelnemersSpan = document.getElementById('aantal-deelnemers'), aantalWinnaarsSpan = document.getElementById('aantal-winnaars');
 
-
-// AANPASSING: Deze functie wordt nu direct aangeroepen door de Google API script tag zodra deze klaar is.
-function onGapiLoad() {
-    gapi.load('client', initClient);
-}
+function onGapiLoad() { gapi.load('client', initClient); }
 
 async function initClient() {
     laadStatus.textContent = 'API initialiseren...';
     try {
-        await gapi.client.init({
-            apiKey: API_KEY,
-            discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
-        });
+        await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"] });
         laadStatus.textContent = 'Klassen ophalen...';
         await fetchSheetsAndClasses();
     } catch (e) {
-        laadStatus.textContent = `Fout bij initialiseren: ${e.message}.`;
-        alert(`Fout bij initialiseren: ${e.message}.`);
+        laadStatus.textContent = `Fout bij initialiseren.`;
+        console.error("Foutobject bij initialiseren:", e);
+        alert(`Fout bij initialiseren. Kijk in de F12-console voor details.`);
     }
 }
 
@@ -144,22 +95,14 @@ async function fetchSheetsAndClasses() {
     try {
         const response = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
         const sheets = response.result.sheets;
-        
         for (const sheet of sheets) {
             const sheetTitle = sheet.properties.title;
             const range = `'${sheetTitle}'!A1:Z1`;
-            
-            const titleResponse = await gapi.client.sheets.spreadsheets.values.get({
-                spreadsheetId: SPREADSHEET_ID,
-                range: range,
-            });
-
+            const titleResponse = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: range });
             if (titleResponse.result.values) {
                 const classTitles = titleResponse.result.values[0];
                 classTitles.forEach((title, index) => {
-                    if (title) {
-                        alleKlassen.push({ sheet: sheetTitle, klas: title, kolom: String.fromCharCode(65 + index) });
-                    }
+                    if (title) { alleKlassen.push({ sheet: sheetTitle, klas: title, kolom: String.fromCharCode(65 + index) }); }
                 });
             }
         }
@@ -167,18 +110,23 @@ async function fetchSheetsAndClasses() {
         laadStatus.textContent = `Klassen succesvol opgehaald. Maak je keuze.`;
         btnStartLoterij.disabled = false;
     } catch (e) {
-        laadStatus.textContent = `Fout bij ophalen van data: ${e.message}. Controleer Spreadsheet ID en deel-instellingen.`;
-        alert(`Fout bij ophalen van data: ${e.message}.`);
+        // --- AANPASSING HIER ---
+        // Log het volledige foutobject naar de console voor gedetailleerde diagnose.
+        console.error("Volledig foutobject van Google API:", e);
+
+        // Probeer een meer gedetailleerde foutmelding te vinden in het object.
+        let errorMessage = "Onbekende fout. Controleer de F12-console.";
+        if (e && e.result && e.result.error && e.result.error.message) {
+            errorMessage = e.result.error.message;
+        }
+
+        laadStatus.textContent = `Fout bij ophalen van data: ${errorMessage}`;
+        alert(`Fout bij ophalen van data: ${errorMessage}\n\nKijk in de F12-console voor technische details.`);
     }
 }
 
 function displayClasses() {
-    const groupedBySheet = alleKlassen.reduce((acc, klas) => {
-        acc[klas.sheet] = acc[klas.sheet] || [];
-        acc[klas.sheet].push(klas);
-        return acc;
-    }, {});
-
+    const groupedBySheet = alleKlassen.reduce((acc, klas) => { acc[klas.sheet] = acc[klas.sheet] || []; acc[klas.sheet].push(klas); return acc; }, {});
     klassenLijstUl.innerHTML = '';
     for (const sheetName in groupedBySheet) {
         const groupLi = document.createElement('li');
@@ -186,7 +134,6 @@ function displayClasses() {
         const titleH4 = document.createElement('h4');
         titleH4.textContent = sheetName;
         groupLi.appendChild(titleH4);
-        
         groupedBySheet[sheetName].forEach(klas => {
             const label = document.createElement('label');
             const checkbox = document.createElement('input');
@@ -202,42 +149,16 @@ function displayClasses() {
 
 async function loadSelectedNames() {
     const checkboxes = document.querySelectorAll('#klassen-lijst input[type="checkbox"]:checked');
-    if (checkboxes.length === 0) {
-        alert("Selecteer minstens één klas.");
-        return;
-    }
-    
+    if (checkboxes.length === 0) { alert("Selecteer minstens één klas."); return; }
     laadStatus.textContent = 'Namen worden geladen...';
     btnStartLoterij.disabled = true;
-
     try {
-        const ranges = Array.from(checkboxes).map(cb => {
-            const [sheet, kolom] = cb.value.split('|');
-            return `${sheet}!${kolom}2:${kolom}`;
-        });
-
-        const response = await gapi.client.sheets.spreadsheets.values.batchGet({
-            spreadsheetId: SPREADSHEET_ID,
-            ranges: ranges,
-        });
-
+        const ranges = Array.from(checkboxes).map(cb => { const [sheet, kolom] = cb.value.split('|'); return `${sheet}!${kolom}2:${kolom}`; });
+        const response = await gapi.client.sheets.spreadsheets.values.batchGet({ spreadsheetId: SPREADSHEET_ID, ranges: ranges });
         let namen = [];
-        if (response.result.valueRanges) {
-            response.result.valueRanges.forEach(range => {
-                if (range.values) {
-                    namen = namen.concat(range.values.flat());
-                }
-            });
-        }
-        
+        if (response.result.valueRanges) { response.result.valueRanges.forEach(range => { if (range.values) { namen = namen.concat(range.values.flat()); } }); }
         deelnemers = namen.map(n => n.trim()).filter(n => n.length > 0);
-
-        if (deelnemers.length === 0) {
-            alert("Geen namen gevonden in de geselecteerde klassen. Controleer of er namen in de kolommen staan (vanaf rij 2).");
-            btnStartLoterij.disabled = false;
-            return;
-        }
-
+        if (deelnemers.length === 0) { alert("Geen namen gevonden in de geselecteerde klassen. Controleer of er namen in de kolommen staan (vanaf rij 2)."); btnStartLoterij.disabled = false; return; }
         winnaars = [];
         setupKlassenDiv.style.display = 'none';
         trekkingDiv.style.display = 'block';
@@ -251,51 +172,23 @@ async function loadSelectedNames() {
 }
 
 function updateLijsten() {
-    deelnemersLijstUl.innerHTML = '';
-    winnaarsLijstUl.innerHTML = '';
+    deelnemersLijstUl.innerHTML = ''; winnaarsLijstUl.innerHTML = '';
     deelnemers.forEach(naam => { const li = document.createElement('li'); li.textContent = naam; deelnemersLijstUl.appendChild(li); });
     winnaars.forEach(naam => { const li = document.createElement('li'); li.textContent = naam; winnaarsLijstUl.appendChild(li); });
-    aantalDeelnemersSpan.textContent = deelnemers.length;
-    aantalWinnaarsSpan.textContent = winnaars.length;
-    btnTrek.disabled = (deelnemers.length === 0);
-    btnSchudden.disabled = (deelnemers.length < 2);
+    aantalDeelnemersSpan.textContent = deelnemers.length; aantalWinnaarsSpan.textContent = winnaars.length;
+    btnTrek.disabled = (deelnemers.length === 0); btnSchudden.disabled = (deelnemers.length < 2);
     btnTrek.textContent = (deelnemers.length === 0) ? "Geen deelnemers meer!" : "Trek een Winnaar!";
 }
 
-function schudDeelnemers() {
-    let currentIndex = deelnemers.length;
-    while (currentIndex !== 0) { let randomIndex = Math.floor(Math.random() * currentIndex); currentIndex--; [deelnemers[currentIndex], deelnemers[randomIndex]] = [deelnemers[randomIndex], deelnemers[currentIndex]]; }
-    updateLijsten();
-}
+function schudDeelnemers() { let currentIndex = deelnemers.length; while (currentIndex !== 0) { let randomIndex = Math.floor(Math.random() * currentIndex); currentIndex--; [deelnemers[currentIndex], deelnemers[randomIndex]] = [deelnemers[randomIndex], deelnemers[currentIndex]]; } updateLijsten(); }
+function trekEenNaam() { if (deelnemers.length === 0) return; const randomIndex = Math.floor(Math.random() * deelnemers.length); huidigeWinnaar = deelnemers[randomIndex]; getrokkenNaamDiv.textContent = huidigeWinnaar; getrokkenNaamContainer.style.display = 'block'; btnTrek.style.display = 'none'; }
+function verwerkKeuze(verwijder) { if (huidigeWinnaar === null) return; if (verwijder) { deelnemers = deelnemers.filter(naam => naam !== huidigeWinnaar); } winnaars.push(huidigeWinnaar); huidigeWinnaar = null; getrokkenNaamContainer.style.display = 'none'; btnTrek.style.display = 'block'; updateLijsten(); }
 
-function trekEenNaam() {
-    if (deelnemers.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * deelnemers.length);
-    huidigeWinnaar = deelnemers[randomIndex];
-    getrokkenNaamDiv.textContent = huidigeWinnaar;
-    getrokkenNaamContainer.style.display = 'block';
-    btnTrek.style.display = 'none';
-}
-
-function verwerkKeuze(verwijder) {
-    if (huidigeWinnaar === null) return;
-    if (verwijder) { deelnemers = deelnemers.filter(naam => naam !== huidigeWinnaar); }
-    winnaars.push(huidigeWinnaar);
-    huidigeWinnaar = null;
-    getrokkenNaamContainer.style.display = 'none';
-    btnTrek.style.display = 'block';
-    updateLijsten();
-}
-
-// Event Listeners
 btnStartLoterij.addEventListener('click', loadSelectedNames);
 btnSchudden.addEventListener('click', schudDeelnemers);
 btnTrek.addEventListener('click', trekEenNaam);
 btnVerwijderJa.addEventListener('click', () => verwerkKeuze(true));
 btnVerwijderNee.addEventListener('click', () => verwerkKeuze(false));
-
-// De DOMContentLoaded listener is niet meer nodig, omdat de 'onload' in de script-tag zijn werk doet.
-
 </script>
 </body>
 </html>
